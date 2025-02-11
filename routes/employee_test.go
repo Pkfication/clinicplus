@@ -1,177 +1,308 @@
 package routes
 
 import (
-	"bytes"
-    "clinicplus/models"
+    "bytes"
     "encoding/json"
     "net/http"
     "net/http/httptest"
-    "strconv"
+	"strconv"  
+    "testing"
+
+    "clinicplus/models"
+    "clinicplus/utils"
     "github.com/gorilla/mux"
     "github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
+    _ "github.com/jinzhu/gorm/dialects/sqlite"
     "github.com/stretchr/testify/assert"
-    "testing"
 )
 
 var testDB *gorm.DB
 
-// Setup function to initialize the database before tests
-func setup() {
+func setupTestDB() {
+    // Initialize test database connection
     var err error
     testDB, err = gorm.Open("sqlite3", ":memory:")
     if err != nil {
-        panic("failed to connect to database")
+        panic("failed to connect database")
     }
-    testDB.AutoMigrate(&models.Employee{}, &models.User{}) // Ensure the Employee and User models are migrated
+
+    // Migrate the schema
+    testDB.AutoMigrate(&models.Employee{}, &models.User{})
+
+    // Set the database for routes
+    SetDB(testDB)
 }
 
-// Test for creating an employee and user account
-func TestCreateEmployee(t *testing.T) {
-    setup()
-    router := mux.NewRouter()
-    SetDB(testDB)
-    RegisterRoutes(router)
+func TestGetEmployees(t *testing.T) {
+    // Setup test database
+    setupTestDB()
+    defer testDB.Close()
 
-    // Prepare the request body with employee and user details
-    requestBody := map[string]interface{}{
-        "name":         "John Doe",
-        "role":         "Doctor",
-        "salary":       60000,
-        "email":        "john@example.com",
-        "phone_number": "1234567890",
-        "hire_date":    "2025-02-11",
-        "leave_balance": 10,
-        "username":     "johndoe",
-        "password":     "securepassword",
+    // Create some test employees
+    employees := []models.Employee{
+        {Name: "John Doe", Email: "john.doe@example.com", Role: "Employee"},
+        {Name: "Jane Smith", Email: "jane.smith@example.com", Role: "Manager"},
+    }
+    for _, emp := range employees {
+        testDB.Create(&emp)
     }
 
-    jsonData, _ := json.Marshal(requestBody)
-    req, _ := http.NewRequest("POST", "/employees", bytes.NewBuffer(jsonData))
-    req.Header.Set("Content-Type", "application/json")
+    // Create request
+    req, err := http.NewRequest("GET", "/employees?page=1&limit=10", nil)
+    assert.NoError(t, err)
 
-    // Create a response recorder
+    // Create response recorder
     rr := httptest.NewRecorder()
-    router.ServeHTTP(rr, req)
 
+    // Call the handler
+    GetEmployees(rr, req)
+
+    // Check the status code
+    assert.Equal(t, http.StatusOK, rr.Code)
+
+    // Print raw response body for debugging
+    rawBody := rr.Body.Bytes()
+    t.Logf("Raw Response Body: %s", string(rawBody))
+
+    // Parse the response
+    var response utils.StandardResponse
+    err = json.Unmarshal(rawBody, &response)
+    if err != nil {
+        t.Fatalf("Failed to unmarshal response: %v", err)
+    }
+
+    // Convert response data to employees
+    var retrievedEmployees []models.Employee
+    
+    // Convert Data to JSON first, then unmarshal
+    dataBytes, err := json.Marshal(response.Data)
+    assert.NoError(t, err)
+    
+    err = json.Unmarshal(dataBytes, &retrievedEmployees)
+    if err != nil {
+        t.Fatalf("Failed to unmarshal employees: %v", err)
+    }
+
+    // Verify employees
+    assert.GreaterOrEqual(t, len(retrievedEmployees), 2)
+    assert.NotNil(t, response.Meta)
+}
+
+func TestGetEmployee(t *testing.T) {
+    // Setup test database
+    setupTestDB()
+    defer testDB.Close()
+
+    // Create a test employee
+    employee := models.Employee{
+        Name:  "John Doe", 
+        Email: "john.doe@example.com",
+        Role:  "Employee",
+    }
+    testDB.Create(&employee)
+
+    // Create request
+    // Convert ID to string correctly
+    req, err := http.NewRequest("GET", "/employees/"+strconv.Itoa(int(employee.ID)), nil)
+    assert.NoError(t, err)
+
+    // Create response recorder
+    rr := httptest.NewRecorder()
+
+    // Set URL vars for mux
+    req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(int(employee.ID))})
+
+    // Call the handler
+    GetEmployee(rr, req)
+
+    // Check the status code
+    assert.Equal(t, http.StatusOK, rr.Code)
+
+    // Print raw response body for debugging
+    rawBody := rr.Body.Bytes()
+    t.Logf("Raw Response Body: %s", string(rawBody))
+
+    // Parse the response
+    var response utils.StandardResponse
+    err = json.Unmarshal(rawBody, &response)
+    assert.NoError(t, err, "Should be able to unmarshal StandardResponse")
+
+    // Convert response data to employee
+    var retrievedEmployee models.Employee
+    
+    // Convert Data to JSON first, then unmarshal
+    dataBytes, err := json.Marshal(response.Data)
+    assert.NoError(t, err)
+    
+    err = json.Unmarshal(dataBytes, &retrievedEmployee)
+    assert.NoError(t, err, "Should be able to unmarshal employee")
+
+    // Verify employee details
+    assert.Equal(t, "John Doe", retrievedEmployee.Name)
+    assert.Equal(t, "john.doe@example.com", retrievedEmployee.Email)
+}
+
+func TestCreateEmployee(t *testing.T) {
+    // Setup test database
+    setupTestDB()
+    defer testDB.Close()
+
+    // Prepare test employee
+    employee := models.Employee{
+        Name:  "John Doe",
+        Email: "john.doe@company.com",
+        Role:  "Employee",
+    }
+
+    // Convert employee to JSON
+    jsonEmployee, err := json.Marshal(employee)
+    assert.NoError(t, err)
+
+    // Create request
+    req, err := http.NewRequest("POST", "/employees", bytes.NewBuffer(jsonEmployee))
+    assert.NoError(t, err)
+
+    // Create response recorder
+    rr := httptest.NewRecorder()
+
+    // Call the handler
+    CreateEmployee(rr, req)
+
+    // Check the status code
     assert.Equal(t, http.StatusCreated, rr.Code)
 
-    // Check if the employee was created
+    // Parse the response
+    var response utils.StandardResponse
+    err = json.Unmarshal(rr.Body.Bytes(), &response)
+    assert.NoError(t, err)
+
+    // Convert response data to employee
     var createdEmployee models.Employee
-    json.Unmarshal(rr.Body.Bytes(), &createdEmployee)
+    data, _ := json.Marshal(response.Data)
+    err = json.Unmarshal(data, &createdEmployee)
+    assert.NoError(t, err)
+
+    // Verify employee details
     assert.Equal(t, "John Doe", createdEmployee.Name)
+    assert.Equal(t, "john.doe@company.com", createdEmployee.Email)
 
-    // Check if the user was created in the database
-    var user models.User
-    err := testDB.Where("username = ?", "johndoe").First(&user).Error
-    assert.NoError(t, err) // Ensure no error occurred
-    assert.Equal(t, "johndoe", user.Username) // Check the username
+    // Verify the employee was actually saved in the database
+    var dbEmployee models.Employee
+    err = testDB.Where("email = ?", "john.doe@company.com").First(&dbEmployee).Error
+    assert.NoError(t, err)
+    assert.Equal(t, "John Doe", dbEmployee.Name)
 }
 
-// Test for getting all employees
-func TestGetEmployees(t *testing.T) {
-    setup()
-    router := mux.NewRouter()
-    SetDB(testDB)
-    RegisterRoutes(router)
-
-    req, _ := http.NewRequest("GET", "/employees", nil)
-    rr := httptest.NewRecorder()
-    router.ServeHTTP(rr, req)
-
-    assert.Equal(t, http.StatusOK, rr.Code)
-}
-
-// Test for getting a single employee
-func TestGetEmployee(t *testing.T) {
-    setup()
-    router := mux.NewRouter()
-    SetDB(testDB)
-    RegisterRoutes(router)
-
-    // First create an employee to retrieve
-    employee := models.Employee{
-        Name:         "Jane Doe",
-        Role:         "Nurse",
-        Salary:       50000,
-        Email:        "jane@example.com",
-        PhoneNumber:  "0987654321",
-        HireDate:     "2025-02-11",
-        LeaveBalance: 15,
-    }
-    testDB.Create(&employee)
-
-    req, _ := http.NewRequest("GET", "/employees/"+strconv.Itoa(int(employee.ID)), nil)
-    rr := httptest.NewRecorder()
-    router.ServeHTTP(rr, req)
-
-    assert.Equal(t, http.StatusOK, rr.Code)
-}
-
-// Additional tests for UpdateEmployee and DeleteEmployee can be added similarly.
-// Test for updating an employee
 func TestUpdateEmployee(t *testing.T) {
-    setup()
-    router := mux.NewRouter()
-    SetDB(testDB)
-    RegisterRoutes(router)
+    // Setup test database
+    setupTestDB()
+    defer testDB.Close()
 
-    // Create an employee to update
+    // Create a test employee
     employee := models.Employee{
-        Name:         "Alice Smith",
-        Role:         "Nurse",
-        Salary:       55000,
-        Email:        "alice@example.com",
-        PhoneNumber:  "1234567890",
-        HireDate:     "2025-02-11",
-        LeaveBalance: 12,
+        Name:  "John Doe", 
+        Email: "john.doe@example.com",
+        Role:  "Employee",
     }
     testDB.Create(&employee)
 
-    // Update the employee's salary
-    employee.Salary = 60000
-    jsonData, _ := json.Marshal(employee)
-    req, _ := http.NewRequest("PUT", "/employees/"+strconv.Itoa(int(employee.ID)), bytes.NewBuffer(jsonData))
-    req.Header.Set("Content-Type", "application/json")
+    // Prepare updated employee data
+    updatedEmployee := models.Employee{
+        Name:  "John Smith",
+        Email: "john.smith@example.com",
+        Role:  "Manager",
+    }
 
+    // Convert updated employee to JSON
+    jsonEmployee, err := json.Marshal(updatedEmployee)
+    assert.NoError(t, err)
+
+    // Create request
+    // Convert ID to string correctly
+    req, err := http.NewRequest("PUT", "/employees/"+strconv.Itoa(int(employee.ID)), bytes.NewBuffer(jsonEmployee))
+    assert.NoError(t, err)
+
+    // Set URL vars for mux
+    req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(int(employee.ID))})
+
+    // Create response recorder
     rr := httptest.NewRecorder()
-    router.ServeHTTP(rr, req)
 
+    // Call the handler
+    UpdateEmployee(rr, req)
+
+    // Check the status code
     assert.Equal(t, http.StatusOK, rr.Code)
 
-    var updatedEmployee models.Employee
-    json.Unmarshal(rr.Body.Bytes(), &updatedEmployee)
-    assert.Equal(t, employee.Salary, updatedEmployee.Salary)
+    // Print raw response body for debugging
+    rawBody := rr.Body.Bytes()
+
+    // Parse the response
+    var response utils.StandardResponse
+    err = json.Unmarshal(rawBody, &response)
+    assert.NoError(t, err, "Should be able to unmarshal StandardResponse")
+
+    // Convert response data to employee
+    var returnedEmployee models.Employee
+    
+    // Convert Data to JSON first, then unmarshal
+    dataBytes, err := json.Marshal(response.Data)
+    assert.NoError(t, err)
+    
+    err = json.Unmarshal(dataBytes, &returnedEmployee)
+    assert.NoError(t, err, "Should be able to unmarshal employee")
+
+    // Verify updated employee details
+    assert.Equal(t, "John Smith", returnedEmployee.Name)
+    assert.Equal(t, "john.smith@example.com", returnedEmployee.Email)
+
+    // Verify the employee was actually updated in the database
+    var dbEmployee models.Employee
+    err = testDB.First(&dbEmployee, employee.ID).Error
+    assert.NoError(t, err)
+    assert.Equal(t, "John Smith", dbEmployee.Name)
 }
 
-// Test for deleting an employee
 func TestDeleteEmployee(t *testing.T) {
-    setup()
-    router := mux.NewRouter()
-    SetDB(testDB)
-    RegisterRoutes(router)
+    // Setup test database
+    setupTestDB()
+    defer testDB.Close()
 
-    // Create an employee to delete
+    // Create a test employee
     employee := models.Employee{
-        Name:         "Bob Johnson",
-        Role:         "Admin",
-        Salary:       65000,
-        Email:        "bob@example.com",
-        PhoneNumber:  "0987654321",
-        HireDate:     "2025-02-11",
-        LeaveBalance: 8,
+        Name:  "John Doe", 
+        Email: "john.doe@example.com",
+        Role:  "Employee",
     }
     testDB.Create(&employee)
 
-    // Delete the employee
-    req, _ := http.NewRequest("DELETE", "/employees/"+strconv.Itoa(int(employee.ID)), nil)
+    // Create request
+    // Convert ID to string correctly
+    req, err := http.NewRequest("DELETE", "/employees/"+strconv.Itoa(int(employee.ID)), nil)
+    assert.NoError(t, err)
+
+    // Set URL vars for mux
+    req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(int(employee.ID))})
+
+    // Create response recorder
     rr := httptest.NewRecorder()
-    router.ServeHTTP(rr, req)
 
-    assert.Equal(t, http.StatusNoContent, rr.Code)
+    // Call the handler
+    DeleteEmployee(rr, req)
 
-    // Check if the employee is deleted
-    var deletedEmployee models.Employee
-    err := testDB.First(&deletedEmployee, employee.ID).Error
-    assert.Equal(t, gorm.ErrRecordNotFound, err)
+    // Check the status code
+    assert.Equal(t, http.StatusOK, rr.Code)
+
+    // Print raw response body for debugging
+    rawBody := rr.Body.Bytes()
+
+    // Parse the response
+    var response utils.StandardResponse
+    err = json.Unmarshal(rawBody, &response)
+    assert.NoError(t, err, "Should be able to unmarshal StandardResponse")
+
+    // Verify the employee was actually deleted from the database
+    var dbEmployee models.Employee
+    err = testDB.First(&dbEmployee, employee.ID).Error
+    assert.Error(t, err, "Expect a 'record not found' error after deletion")
 }

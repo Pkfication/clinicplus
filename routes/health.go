@@ -1,22 +1,20 @@
+
 package routes
 
 import (
+    "clinicplus/utils"
+    "time"
     "net/http"
-    "encoding/json"
 )
 
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
-    status := map[string]string{
+    healthData := map[string]string{
         "status": "healthy",
         "version": "1.0.0",
     }
-    
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(status)
-}
 
-// Add to RegisterRoutes in routes/routes.go
-func RegisterRoutes(r *mux.Router) {
-    // ... existing routes
-    r.HandleFunc("/health", HealthCheck).Methods("GET")
+    utils.SendJSONResponse(w, http.StatusOK, healthData, nil, map[string]interface{}{
+        "timestamp": time.Now().Format(time.RFC3339),
+        "server": "clinicplus-api",
+    })
 }

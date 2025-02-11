@@ -7,6 +7,7 @@ import (
     "net/http/httptest"
     "testing"
 
+	"clinicplus/utils"
     "clinicplus/models"
     "github.com/gorilla/mux"
     "github.com/jinzhu/gorm"
@@ -104,7 +105,7 @@ func TestLogin(t *testing.T) {
             assert.Equal(t, tc.expectedStatus, rr.Code)
 
             // Parse the response
-            var response StandardResponse
+            var response utils.StandardResponse
             err := json.Unmarshal(rr.Body.Bytes(), &response)
             assert.NoError(t, err)
 
@@ -176,7 +177,7 @@ func TestLogout(t *testing.T) {
             assert.Equal(t, tc.expectedStatus, rr.Code)
 
             // Parse the response
-            var response StandardResponse
+            var response utils.StandardResponse
             err := json.Unmarshal(rr.Body.Bytes(), &response)
             assert.NoError(t, err)
 

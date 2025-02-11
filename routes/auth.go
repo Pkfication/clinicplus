@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"clinicplus/utils"
     "clinicplus/models"
     "encoding/json"
     "net/http"
@@ -13,13 +14,6 @@ import (
 type Claims struct {
     Username string `json:"username"`
     jwt.StandardClaims
-}
-
-// StandardResponse represents the standard API response structure
-type StandardResponse struct {
-    Data  interface{} `json:"data"`
-    Error interface{} `json:"error"`
-    Meta  interface{} `json:"meta"`
 }
 
 // LoginResponse represents the data returned on successful login
@@ -41,20 +35,6 @@ func SetJWTKey(key []byte) {
     jwtKey = key
 }
 
-// sendJSONResponse is a helper function to send standardized JSON responses
-func sendJSONResponse(w http.ResponseWriter, statusCode int, data interface{}, err interface{}, meta interface{}) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(statusCode)
-    
-    response := StandardResponse{
-        Data:  data,
-        Error: err,
-        Meta:  meta,
-    }
-    
-    json.NewEncoder(w).Encode(response)
-}
-
 // Login function
 func Login(w http.ResponseWriter, r *http.Request) {
     var user models.User
@@ -63,21 +43,21 @@ func Login(w http.ResponseWriter, r *http.Request) {
     // Decode request body
     if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
         log.Println("Error decoding request body:", err)
-        sendJSONResponse(w, http.StatusBadRequest, nil, "Invalid request body", nil)
+        utils.SendJSONResponse(w, http.StatusBadRequest, nil, "Invalid request body", nil)
         return
     }
 
     // Find user by username
     if err := db.Where("username = ?", loginRequest.Username).First(&user).Error; err != nil {
         log.Printf("Invalid login attempt for user: %s\n", loginRequest.Username)
-        sendJSONResponse(w, http.StatusUnauthorized, nil, "Invalid username or password", nil)
+        utils.SendJSONResponse(w, http.StatusUnauthorized, nil, "Invalid username or password", nil)
         return
     }
 
     // Compare password
     if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginRequest.Password)); err != nil {
         log.Printf("Invalid password for user: %s\n", loginRequest.Username)
-        sendJSONResponse(w, http.StatusUnauthorized, nil, "Invalid username or password", nil)
+        utils.SendJSONResponse(w, http.StatusUnauthorized, nil, "Invalid username or password", nil)
         return
     }
 
@@ -94,7 +74,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
     tokenString, err := token.SignedString(jwtKey)
     if err != nil {
         log.Println("Error signing token:", err)
-        sendJSONResponse(w, http.StatusInternalServerError, nil, "Error generating authentication token", nil)
+        utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Error generating authentication token", nil)
         return
     }
 
@@ -107,12 +87,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
     log.Printf("User %s logged in successfully\n", user.Username)
 
     // Send standardized response
-    sendJSONResponse(w, http.StatusOK, loginResponse, nil, map[string]interface{}{
+    utils.SendJSONResponse(w, http.StatusOK, loginResponse, nil, map[string]interface{}{
         "expires_at": expirationTime.Format(time.RFC3339),
     })
 }
 
-// Logout function (optional)
 func Logout(w http.ResponseWriter, r *http.Request) {
     // In a stateless JWT system, true logout happens on the client-side
     // by discarding the token. However, we'll provide a standardized response.
@@ -128,7 +107,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
     }
 
     // Send standardized response
-    sendJSONResponse(w, http.StatusOK, logoutResponse, nil, map[string]interface{}{
+    utils.SendJSONResponse(w, http.StatusOK, logoutResponse, nil, map[string]interface{}{
         "timestamp": time.Now().Format(time.RFC3339),
     })
 }
