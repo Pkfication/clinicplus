@@ -1,9 +1,9 @@
 services:
   - type: web
     name: clinicplus-api
-    runtime: docker
+    runtime: go
     branch: main
-    buildCommand: docker build -t clinicplus .
+    buildCommand: go mod download && go build -o main
     startCommand: ./main
     envVars:
       - key: DATABASE_URL
