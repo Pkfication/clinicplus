@@ -23,27 +23,30 @@ func setup() {
     if err != nil {
         panic("failed to connect to database")
     }
-    testDB.AutoMigrate(&models.Employee{}) // Ensure the Employee model is migrated
+    testDB.AutoMigrate(&models.Employee{}, &models.User{}) // Ensure the Employee and User models are migrated
 }
 
-// Test for creating an employee
+// Test for creating an employee and user account
 func TestCreateEmployee(t *testing.T) {
     setup()
     router := mux.NewRouter()
     SetDB(testDB)
     RegisterRoutes(router)
 
-    employee := models.Employee{
-        Name:         "John Doe",
-        Role:         "Doctor",
-        Salary:       60000,
-        Email:        "john@example.com",
-        PhoneNumber:  "1234567890",
-        HireDate:     "2025-02-11",
-        LeaveBalance: 10,
+    // Prepare the request body with employee and user details
+    requestBody := map[string]interface{}{
+        "name":         "John Doe",
+        "role":         "Doctor",
+        "salary":       60000,
+        "email":        "john@example.com",
+        "phone_number": "1234567890",
+        "hire_date":    "2025-02-11",
+        "leave_balance": 10,
+        "username":     "johndoe",
+        "password":     "securepassword",
     }
 
-    jsonData, _ := json.Marshal(employee)
+    jsonData, _ := json.Marshal(requestBody)
     req, _ := http.NewRequest("POST", "/employees", bytes.NewBuffer(jsonData))
     req.Header.Set("Content-Type", "application/json")
 
@@ -53,9 +56,16 @@ func TestCreateEmployee(t *testing.T) {
 
     assert.Equal(t, http.StatusCreated, rr.Code)
 
+    // Check if the employee was created
     var createdEmployee models.Employee
     json.Unmarshal(rr.Body.Bytes(), &createdEmployee)
-    assert.Equal(t, employee.Name, createdEmployee.Name)
+    assert.Equal(t, "John Doe", createdEmployee.Name)
+
+    // Check if the user was created in the database
+    var user models.User
+    err := testDB.Where("username = ?", "johndoe").First(&user).Error
+    assert.NoError(t, err) // Ensure no error occurred
+    assert.Equal(t, "johndoe", user.Username) // Check the username
 }
 
 // Test for getting all employees

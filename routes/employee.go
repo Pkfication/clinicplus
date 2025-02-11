@@ -6,9 +6,12 @@ import (
     "net/http"
     "github.com/gorilla/mux"
     "github.com/jinzhu/gorm"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func RegisterRoutes(r *mux.Router) {
+	r.HandleFunc("/login", Login).Methods("POST")
+    r.HandleFunc("/logout", Logout).Methods("POST")
     r.HandleFunc("/employees", GetEmployees).Methods("GET")
     r.HandleFunc("/employees/{id}", GetEmployee).Methods("GET")
     r.HandleFunc("/employees", CreateEmployee).Methods("POST")
@@ -45,19 +48,57 @@ func GetEmployee(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(employee)
 }
 
-// CreateEmployee creates a new employee
+type CreateEmployeeRequest struct {
+    models.Employee
+    Username string `json:"username"`
+    Password string `json:"password"`
+}
+
+// CreateEmployee creates a new employee and user account
 func CreateEmployee(w http.ResponseWriter, r *http.Request) {
-    var employee models.Employee
-    if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
+    var employeeRequest CreateEmployeeRequest
+    var user models.User
+
+    // Decode request body
+	if err := json.NewDecoder(r.Body).Decode(&employeeRequest); err != nil {
         http.Error(w, err.Error(), http.StatusBadRequest)
         return
     }
-    if err := db.Create(&employee).Error; err != nil {
+
+    // Hash the password for the user account
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(employeeRequest.Password), bcrypt.DefaultCost)
+    if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
+
+	// Create the user account
+    user.Username = employeeRequest.Username
+    user.PasswordHash = string(hashedPassword)
+    user.Role = "Employee"
+
+    // Begin a transaction
+    tx := db.Begin()
+    if err := tx.Create(&employeeRequest.Employee).Error; err != nil {
+        tx.Rollback()
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    user.EmployeeID = employeeRequest.Employee.ID // Link user to the employee
+    if err := tx.Create(&user).Error; err != nil {
+        tx.Rollback()
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Commit the transaction
+    tx.Commit()
+
+    // Respond with the created employee
+    user.PasswordHash = "" // Omit the password hash before sending the response
     w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(employee)
+    json.NewEncoder(w).Encode(employeeRequest.Employee)
 }
 
 // UpdateEmployee updates an existing employee
