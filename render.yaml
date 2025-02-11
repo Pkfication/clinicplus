@@ -1,11 +1,10 @@
 services:
   - type: web
     name: clinicplus-api
-    env: docker
-    region: oregon
-    plan: free
+    runtime: docker
     branch: main
-    healthCheckPath: /health
+    buildCommand: docker build -t clinicplus .
+    startCommand: ./main
     envVars:
       - key: DATABASE_URL
         fromDatabase:
