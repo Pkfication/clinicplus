@@ -5,11 +5,19 @@ import (
 )
 
 func RegisterRoutes(r *mux.Router) {
-    // Existing route registrations
+
+    // Health Check Routes
+    r.HandleFunc("/health", HealthCheck).Methods("GET")
+
+    // Authentication Routes
     r.HandleFunc("/login", Login).Methods("POST")
     r.HandleFunc("/logout", Logout).Methods("POST")
-    // ... other existing routes
 
-    // Add health check route
-    r.HandleFunc("/health", HealthCheck).Methods("GET")
+    // Employee Management Routes
+    employeeRouter := r.PathPrefix("/employees").Subrouter()
+    employeeRouter.HandleFunc("", GetEmployees).Methods("GET")
+    employeeRouter.HandleFunc("", CreateEmployee).Methods("POST")
+    employeeRouter.HandleFunc("/{id}", GetEmployee).Methods("GET")
+    employeeRouter.HandleFunc("/{id}", UpdateEmployee).Methods("PUT")
+    employeeRouter.HandleFunc("/{id}", DeleteEmployee).Methods("DELETE")
 }

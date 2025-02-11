@@ -90,6 +90,20 @@ func main() {
     routes.SetJWTKey(jwtSecret)
     routes.RegisterRoutes(router)
 
+	   // Log registered routes
+	err := router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		path, err := route.GetPathTemplate()
+		if err == nil {
+			methods, _ := route.GetMethods()
+			log.Printf("Registered Route: %v %v", methods, path)
+		}
+		return nil
+    })
+
+    if err != nil {
+        log.Printf("Error walking routes: %v", err)
+    }
+
     // Get port from environment
     port := utils.GetServerPort()
 
