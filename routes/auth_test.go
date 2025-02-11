@@ -135,3 +135,66 @@ func TestLogin(t *testing.T) {
         })
     }
 }
+
+func TestLogout(t *testing.T) {
+    // Setup router
+    router := mux.NewRouter()
+    RegisterRoutes(router)
+
+    testCases := []struct {
+        name           string
+        authToken      string
+        expectedStatus int
+    }{
+        {
+            name:           "Successful Logout",
+            authToken:      "Bearer valid_token_example",
+            expectedStatus: http.StatusOK,
+        },
+        {
+            name:           "Logout without Token",
+            authToken:      "",
+            expectedStatus: http.StatusOK,
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            // Prepare request
+            req, _ := http.NewRequest("POST", "/logout", nil)
+            
+            // Add authorization header if present
+            if tc.authToken != "" {
+                req.Header.Set("Authorization", tc.authToken)
+            }
+
+            // Create a response recorder
+            rr := httptest.NewRecorder()
+            router.ServeHTTP(rr, req)
+
+            // Check the status code
+            assert.Equal(t, tc.expectedStatus, rr.Code)
+
+            // Parse the response
+            var response StandardResponse
+            err := json.Unmarshal(rr.Body.Bytes(), &response)
+            assert.NoError(t, err)
+
+            // Verify response structure
+            assert.Nil(t, response.Error)
+            assert.NotNil(t, response.Data)
+            assert.NotNil(t, response.Meta)
+
+            // Check data
+            data, ok := response.Data.(map[string]interface{})
+            assert.True(t, ok)
+            assert.Contains(t, data, "message")
+            assert.Equal(t, "Successfully logged out", data["message"])
+
+            // Check meta
+            meta, ok := response.Meta.(map[string]interface{})
+            assert.True(t, ok)
+            assert.Contains(t, meta, "timestamp")
+        })
+    }
+}

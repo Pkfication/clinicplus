@@ -110,6 +110,21 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 // Logout function (optional)
 func Logout(w http.ResponseWriter, r *http.Request) {
-    // Invalidate the token on the client side (e.g., remove it from local storage)
-    w.WriteHeader(http.StatusNoContent)
+    // In a stateless JWT system, true logout happens on the client-side
+    // by discarding the token. However, we'll provide a standardized response.
+
+    // Extract the token from the Authorization header (optional, for logging)
+    authHeader := r.Header.Get("Authorization")
+    
+    log.Printf("Logout attempt with token: %s\n", authHeader)
+
+    // Prepare logout response
+    logoutResponse := map[string]string{
+        "message": "Successfully logged out",
+    }
+
+    // Send standardized response
+    sendJSONResponse(w, http.StatusOK, logoutResponse, nil, map[string]interface{}{
+        "timestamp": time.Now().Format(time.RFC3339),
+    })
 }
