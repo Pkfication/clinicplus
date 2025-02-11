@@ -3,40 +3,103 @@ package main
 import (
     "clinicplus/models"
     "clinicplus/routes"
-    "github.com/gorilla/mux"
-    "github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-    "github.com/joho/godotenv"
+    "clinicplus/utils"
+    "fmt"
     "log"
     "net/http"
-    "os"
+
+    "github.com/gorilla/mux"
+    "github.com/jinzhu/gorm"
+    _ "github.com/jinzhu/gorm/dialects/postgres"
+    "golang.org/x/crypto/bcrypt"
 )
 
 var db *gorm.DB
 
-func main() {
-    err := godotenv.Load()
+func setupCORS(handler http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        
+        handler.ServeHTTP(w, r)
+    })
+}
+
+func initDatabase() *gorm.DB {
+    // Load environment variables
+    utils.LoadEnv()
+
+    // Get database connection string from environment
+    dbURL := utils.GetDatabaseURL()
+
+    // Open database connection
+    db, err := gorm.Open("postgres", dbURL)
     if err != nil {
-        log.Fatal("Error loading .env file")
+        log.Fatalf("Failed to connect to database: %v", err)
     }
 
-    // Connect to the database
-    dsn := os.Getenv("DATABASE_URL")
-    db, err = gorm.Open("postgres", dsn)
-    if err != nil {
-        log.Fatal("Failed to connect to database:", err)
+    // Auto migrate models
+    db.AutoMigrate(&models.Employee{}, &models.User{})
+
+    // Optional: Create a default admin user if not exists
+    createDefaultAdminUser(db)
+
+    return db
+}
+
+func createDefaultAdminUser(db *gorm.DB) {
+    var user models.User
+    // Check if admin user already exists
+    if err := db.Where("username = ?", "admin").First(&user).Error; err != nil {
+        // Admin user doesn't exist, create one
+        hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("adminpassword"), bcrypt.DefaultCost)
+        
+        adminUser := models.User{
+            Username:     "admin",
+            PasswordHash: string(hashedPassword),
+            Role:         "Admin",
+        }
+
+        if err := db.Create(&adminUser).Error; err != nil {
+            log.Printf("Failed to create default admin user: %v", err)
+        } else {
+            log.Println("Default admin user created")
+        }
     }
+}
+
+func main() {
+    // Initialize database
+    db := initDatabase()
     defer db.Close()
 
-    // Migrate the models
-    db.AutoMigrate(&models.Employee{}, &models.Attendance{}, &models.Leave{}, &models.Payroll{}, &models.Expense{}, &models.User{})
+    // Get JWT secret from environment
+    jwtSecret := utils.GetJWTSecret()
 
-	// Set the database connection for routes
+    // Create router
+    router := mux.NewRouter()
+
+    // Register routes and pass JWT secret
     routes.SetDB(db)
+    routes.SetJWTKey(jwtSecret)
+    routes.RegisterRoutes(router)
 
-    r := mux.NewRouter()
-    routes.RegisterRoutes(r)
+    // Get port from environment
+    port := utils.GetServerPort()
 
-    log.Println("Server started at :8080")
-    http.ListenAndServe(":8080", r)
+    // Setup CORS middleware
+    handler := setupCORS(router)
+
+    // Start server
+    serverAddr := fmt.Sprintf(":%s", port)
+    log.Printf("Server starting on port %s", port)
+    
+    // Start the server
+    log.Fatal(http.ListenAndServe(serverAddr, handler))
 }

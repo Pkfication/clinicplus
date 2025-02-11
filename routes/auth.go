@@ -7,7 +7,7 @@ import (
     "github.com/dgrijalva/jwt-go"
     "golang.org/x/crypto/bcrypt"
     "time"
-	"log"
+    "log"
 )
 
 type Claims struct {
@@ -15,9 +15,6 @@ type Claims struct {
     jwt.StandardClaims
 }
 
-var jwtKey = []byte("your_secret_key") // Change this to a secure key in production
-
-// LoginRequest represents the structure of the login request
 // StandardResponse represents the standard API response structure
 type StandardResponse struct {
     Data  interface{} `json:"data"`
@@ -35,6 +32,13 @@ type LoginResponse struct {
 type LoginRequest struct {
     Username string `json:"username"`
     Password string `json:"password"`
+}
+
+var jwtKey []byte
+
+// SetJWTKey allows setting the JWT secret key from outside the package
+func SetJWTKey(key []byte) {
+    jwtKey = key
 }
 
 // sendJSONResponse is a helper function to send standardized JSON responses
