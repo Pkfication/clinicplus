@@ -11,6 +11,7 @@ import (
     "strings"
     "github.com/gorilla/mux"
     "github.com/jinzhu/gorm"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var db *gorm.DB
@@ -92,41 +93,102 @@ func GetEmployee(w http.ResponseWriter, r *http.Request) {
 
 // CreateEmployee creates a new employee
 func CreateEmployee(w http.ResponseWriter, r *http.Request) {
-    var employee models.Employee
+    // Start a database transaction
+    tx := db.Begin()
+    if tx.Error != nil {
+        log.Printf("Error starting transaction: %v", tx.Error)
+        utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to start transaction", nil)
+        return
+    }
+
+    // Create a struct to capture both employee and user details
+    var createRequest struct {
+        models.Employee
+        Username string `json:"username"`
+        Password string `json:"password"`
+    }
 
     // Decode request body
-    if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
+    if err := json.NewDecoder(r.Body).Decode(&createRequest); err != nil {
+        tx.Rollback()
         log.Printf("Error decoding request body: %v", err)
         utils.SendJSONResponse(w, http.StatusBadRequest, nil, "Invalid request body", nil)
         return
     }
 
     // Validate required fields
-    if employee.Name == "" {
-        utils.SendJSONResponse(w, http.StatusBadRequest, nil, "Name is required", nil)
+    var validationErrors []string
+    
+    if createRequest.Name == "" {
+        validationErrors = append(validationErrors, "Name is required")
+    }
+    
+    if createRequest.Email == "" {
+        validationErrors = append(validationErrors, "Email must be explicitly provided")
+    }
+    
+    if createRequest.Username == "" {
+        validationErrors = append(validationErrors, "Username must be explicitly provided")
+    }
+    
+    if createRequest.Password == "" {
+        validationErrors = append(validationErrors, "Password must be explicitly provided")
+    }
+
+    // If there are validation errors, return them
+    if len(validationErrors) > 0 {
+        tx.Rollback()
+        utils.SendJSONResponse(w, http.StatusBadRequest, nil, validationErrors, nil)
         return
     }
 
-    // Set default values or generate additional fields if needed
-    if employee.Email == "" {
-        // Generate email if not provided
-        employee.Email = generateEmail(employee.Name, "")
-    }
-
     // Create the employee
-    if err := db.Create(&employee).Error; err != nil {
+    if err := tx.Create(&createRequest.Employee).Error; err != nil {
+        tx.Rollback()
         log.Printf("Error creating employee: %v", err)
         utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to create employee", nil)
         return
     }
 
+    // Hash the password
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(createRequest.Password), bcrypt.DefaultCost)
+    if err != nil {
+        tx.Rollback()
+        log.Printf("Error hashing password: %v", err)
+        utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to secure password", nil)
+        return
+    }
+
+    // Create user
+    user := models.User{
+        EmployeeID:    createRequest.Employee.ID,
+        Username:      createRequest.Username,
+        PasswordHash: string(hashedPassword),
+        Role:         createRequest.Role, // Use role from employee data
+    }
+
+    // Save user
+    if err := tx.Create(&user).Error; err != nil {
+        tx.Rollback()
+        log.Printf("Error creating user: %v", err)
+        utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to create user", nil)
+        return
+    }
+
+    // Commit the transaction
+    if err := tx.Commit().Error; err != nil {
+        log.Printf("Error committing transaction: %v", err)
+        utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to complete employee creation", nil)
+        return
+    }
+
     // Prepare response metadata
     meta := map[string]interface{}{
-        "message": "Employee created successfully",
+        "message": "Employee and user created successfully",
     }
 
     // Send standardized response
-    utils.SendJSONResponse(w, http.StatusCreated, employee, nil, meta)
+    utils.SendJSONResponse(w, http.StatusCreated, createRequest.Employee, nil, meta)
 }
 
 // UpdateEmployee updates an existing employee
