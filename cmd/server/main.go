@@ -13,7 +13,6 @@ import (
 func main() {
 	// Get port from environment
 	port := config.GetServerPort()
-
 	serverAddr := fmt.Sprintf(":%s", port)
 	log.Printf("Server starting on port %s", port)
 

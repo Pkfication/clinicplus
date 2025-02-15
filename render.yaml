@@ -3,7 +3,7 @@ services:
     name: clinicplus-api
     runtime: go
     branch: main
-    buildCommand: go build -o main ./cmd/server && goose up
+    buildCommand: go build -o main ./cmd/server
     startCommand: ./main
     envVars:
       - key: DATABASE_URL

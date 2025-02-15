@@ -11,6 +11,8 @@ import (
 
 func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
+	db.AutoMigrate(&iam.User{}, &employee.Employee{})
+
 	// Health Check Routes
 	r.HandleFunc("/health", HealthCheck).Methods("GET")
 
