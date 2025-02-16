@@ -276,6 +276,17 @@ func (h *EmployeeHandler) CreateShift(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, http.StatusCreated, createdShift, nil, nil)
 }
 
+func (h *EmployeeHandler) GetShifts(w http.ResponseWriter, r *http.Request) {
+	shifts, err := h.service.GetShifts()
+	if err != nil {
+		log.Printf("Error fetching shifts: %v", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to retrieve shifts", nil)
+		return
+	}
+
+	utils.SendJSONResponse(w, http.StatusOK, shifts, nil, nil)
+}
+
 func (h *EmployeeHandler) GetShift(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]

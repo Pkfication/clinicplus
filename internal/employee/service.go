@@ -22,6 +22,7 @@ type EmployeeService interface {
 
 	CreateShift(shift Shift) (*Shift, error)
 	GetShift(id uint) (*Shift, error)
+	GetShifts() ([]Shift, error)
 	UpdateShift(id uint, shift Shift) (*Shift, error)
 	DeleteShift(id uint) error
 	AssignShift(employeeID uint, shiftID uint, startDate time.Time, endDate time.Time) (*EmployeeShift, error)
@@ -226,6 +227,16 @@ func (s *employeeService) CreateShift(shift Shift) (*Shift, error) {
 		return nil, err
 	}
 	return &shift, nil
+}
+
+// GetShifts retrieves all shifts from the database
+func (s *employeeService) GetShifts() ([]Shift, error) {
+	var shifts []Shift
+	if err := s.db.Find(&shifts).Error; err != nil {
+		log.Printf("Error fetching shifts: %v", err)
+		return nil, err
+	}
+	return shifts, nil
 }
 
 // GetShift retrieves a shift by ID

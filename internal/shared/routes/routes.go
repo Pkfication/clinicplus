@@ -39,6 +39,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	employeeRouter.HandleFunc("/{id}/assign_shift", employeeHandler.AssignShift).Methods("POST")
 
 	// Shift Management Routes
+	shiftRouter.HandleFunc("", employeeHandler.GetShifts).Methods("GET")
 	shiftRouter.HandleFunc("", employeeHandler.CreateShift).Methods("POST")
 	shiftRouter.HandleFunc("/{id}", employeeHandler.GetShift).Methods("GET")
 	shiftRouter.HandleFunc("/{id}", employeeHandler.UpdateShift).Methods("PUT")
