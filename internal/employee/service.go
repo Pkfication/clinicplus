@@ -14,6 +14,7 @@ type EmployeeService interface {
 	CreateEmployee(employee Employee) (*Employee, error)
 	UpdateEmployee(id int, employee Employee) (*Employee, error)
 	DeleteEmployee(id int) error
+	SearchEmployees(query string, page, limit int) ([]Employee, int, error)
 }
 
 type employeeService struct {
@@ -108,4 +109,33 @@ func (s *employeeService) DeleteEmployee(id int) error {
 	}
 
 	return nil
+}
+
+func (s *employeeService) SearchEmployees(query string, page, limit int) ([]Employee, int, error) {
+	var employees []Employee
+	searchPattern := "%" + query + "%"
+
+	// Calculate offset
+	offset := (page - 1) * limit
+
+	err := s.db.Where(
+		"name ILIKE ? OR designation ILIKE ? OR email ILIKE ? OR phone_number ILIKE ? OR address ILIKE ? OR country ILIKE ? OR state ILIKE ? OR marital_status ILIKE ? OR emergency_contact ILIKE ?",
+		searchPattern, searchPattern, searchPattern, searchPattern, searchPattern,
+		searchPattern, searchPattern, searchPattern, searchPattern, // 9 parameters
+	).Offset(offset).Limit(limit).Find(&employees).Error
+
+	if err != nil {
+		log.Printf("Error searching employees: %v", err)
+		return nil, 0, err
+	}
+
+	// Count total matching employees
+	var total int
+	s.db.Model(&Employee{}).Where(
+		"name ILIKE ? OR designation ILIKE ? OR email ILIKE ? OR phone_number ILIKE ? OR address ILIKE ? OR country ILIKE ? OR state ILIKE ? OR marital_status ILIKE ? OR emergency_contact ILIKE ?",
+		searchPattern, searchPattern, searchPattern, searchPattern, searchPattern,
+		searchPattern, searchPattern, searchPattern, searchPattern, // 9 parameters
+	).Count(&total)
+
+	return employees, total, nil
 }

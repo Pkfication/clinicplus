@@ -164,3 +164,37 @@ func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request)
 		"message": "Employee deleted successfully",
 	})
 }
+
+func (h *EmployeeHandler) SearchEmployees(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page := 1   // default page
+	limit := 10 // default limit
+
+	if pageStr != "" {
+		page, _ = strconv.Atoi(pageStr)
+	}
+	if limitStr != "" {
+		limit, _ = strconv.Atoi(limitStr)
+	}
+
+	employees, total, err := h.service.SearchEmployees(query, page, limit)
+	if err != nil {
+		log.Printf("Error searching employees: %v", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to search employees", nil)
+		return
+	}
+
+	// Prepare metadata
+	meta := map[string]interface{}{
+		"page":        page,
+		"limit":       limit,
+		"total":       total,
+		"total_pages": (total + limit - 1) / limit,
+	}
+
+	// Send response
+	utils.SendJSONResponse(w, http.StatusOK, employees, nil, meta)
+}

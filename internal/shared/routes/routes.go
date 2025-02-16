@@ -27,8 +27,10 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	employeeHandler := employee.NewEmployeeHandler(employeeService)
 	employeeRouter := r.PathPrefix("/employees").Subrouter()
 	employeeRouter.HandleFunc("", employeeHandler.GetEmployees).Methods("GET")
+	employeeRouter.HandleFunc("/search", employeeHandler.SearchEmployees).Methods("GET")
 	employeeRouter.HandleFunc("", employeeHandler.CreateEmployee).Methods("POST")
 	employeeRouter.HandleFunc("/{id}", employeeHandler.GetEmployee).Methods("GET")
 	employeeRouter.HandleFunc("/{id}", employeeHandler.UpdateEmployee).Methods("PUT")
 	employeeRouter.HandleFunc("/{id}", employeeHandler.DeleteEmployee).Methods("DELETE")
+
 }
