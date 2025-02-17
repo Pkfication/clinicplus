@@ -49,13 +49,11 @@ type Attendance struct {
 
 type EmployeeShift struct {
 	gorm.Model
-	EmployeeID uint      `gorm:"not null" json:"employee_id"` // Foreign key
-	ShiftID    uint      `gorm:"not null" json:"shift_id"`    // Foreign key
-	StartDate  time.Time `gorm:"type:date;not null" json:"start_date"`
-	EndDate    time.Time `gorm:"type:date;not null" json:"end_date"`
+	EmployeeID uint      `gorm:"not null;index:uniq_idx,unique,composite" json:"employee_id"` // Foreign key
+	ShiftID    uint      `gorm:"not null;index:uniq_idx,unique,composite" json:"shift_id"`    // Foreign key
+	StartDate  time.Time `gorm:"type:date;not null;index:uniq_idx,unique,composite" json:"start_date"`
+	EndDate    time.Time `gorm:"type:date;not null;index:uniq_idx,unique,composite" json:"end_date"`
 
 	Employee Employee `gorm:"foreignkey:EmployeeID"`
 	Shift    Shift    `gorm:"foreignkey:ShiftID"` // Relationship with Shift
-
-	UniqueIndex string `gorm:"unique_index:idx_employee_shift;employee_id,shift_id,start_date,end_date"`
 }
