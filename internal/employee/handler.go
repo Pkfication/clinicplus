@@ -297,14 +297,14 @@ func (h *EmployeeHandler) GetShift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shift, err := h.service.GetShift(uint(id))
+	shiftWithEmployees, err := h.service.GetShift(uint(id))
 	if err != nil {
 		log.Printf("Error fetching shift: %v", err)
 		utils.SendJSONResponse(w, http.StatusInternalServerError, nil, "Failed to retrieve shift", nil)
 		return
 	}
 
-	utils.SendJSONResponse(w, http.StatusOK, shift, nil, nil)
+	utils.SendJSONResponse(w, http.StatusOK, shiftWithEmployees, nil, nil)
 }
 
 func (h *EmployeeHandler) UpdateShift(w http.ResponseWriter, r *http.Request) {

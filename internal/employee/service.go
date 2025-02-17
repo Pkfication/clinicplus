@@ -21,7 +21,7 @@ type EmployeeService interface {
 	ClockOut(employeeID uint, shiftID uint) (*Attendance, error)
 
 	CreateShift(shift Shift) (*Shift, error)
-	GetShift(id uint) (*Shift, error)
+	GetShift(id uint) (*ShiftWithEmployees, error)
 	GetShifts() ([]Shift, error)
 	UpdateShift(id uint, shift Shift) (*Shift, error)
 	DeleteShift(id uint) error
@@ -239,14 +239,31 @@ func (s *employeeService) GetShifts() ([]Shift, error) {
 	return shifts, nil
 }
 
-// GetShift retrieves a shift by ID
-func (s *employeeService) GetShift(id uint) (*Shift, error) {
+// ShiftWithEmployees is a struct to hold shift data along with assigned employees
+type ShiftWithEmployees struct {
+	Shift     Shift      `json:"shift"`
+	Employees []Employee `json:"employees"`
+}
+
+// GetShift retrieves a shift by ID along with employees assigned to that shift
+func (s *employeeService) GetShift(id uint) (*ShiftWithEmployees, error) {
 	var shift Shift
-	if err := s.db.First(&shift, id).Error; err != nil {
+	if err := s.db.Preload("Employees.Employee").First(&shift, id).Error; err != nil {
 		log.Printf("Error fetching shift: %v", err)
 		return nil, err
 	}
-	return &shift, nil
+
+	var employees []Employee
+	for _, empShift := range shift.Employees {
+		employees = append(employees, empShift.Employee)
+	}
+
+	shift.Employees = []EmployeeShift{}
+
+	return &ShiftWithEmployees{
+		Shift:     shift,
+		Employees: employees,
+	}, nil
 }
 
 // UpdateShift updates an existing shift
