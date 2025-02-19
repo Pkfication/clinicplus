@@ -2,6 +2,8 @@
 package employee
 
 import (
+	"clinicplus/internal/shared/utils"
+	"database/sql"
 	"errors"
 	"log"
 	"time"
@@ -166,10 +168,15 @@ func (s *employeeService) ClockIn(employeeID uint, shiftID uint) (*Attendance, e
 	// Create a new attendance record
 	attendance = Attendance{
 		EmployeeID:  employeeID,
-		ShiftID:     shiftID, // Associate the attendance with the shift
-		Date:        date,
+		ShiftID:     shiftID,                      // Associate the attendance with the shift
+		Date:        now.Truncate(24 * time.Hour), // Use today's date
 		ClockInTime: now,
-		Status:      "Present",
+		ClockOutTime: utils.NullTime{
+			NullTime: sql.NullTime{
+				Valid: false, // Set to true to indicate that this time is valid
+			},
+		},
+		Status: "Present",
 	}
 
 	if err := s.db.Create(&attendance).Error; err != nil {
@@ -197,7 +204,12 @@ func (s *employeeService) ClockOut(employeeID uint, shiftID uint) (*Attendance, 
 	}
 
 	// Update the clock-out time and status
-	attendance.ClockOutTime = now
+	attendance.ClockOutTime = utils.NullTime{
+		NullTime: sql.NullTime{
+			Time:  now,  // Set to the current time or any specific time you want
+			Valid: true, // Set to true to indicate that this time is valid
+		},
+	}
 	attendance.Status = "Present" // Adjust status if needed
 
 	if err := s.db.Save(&attendance).Error; err != nil {
@@ -241,11 +253,12 @@ func (s *employeeService) GetShifts() ([]Shift, error) {
 
 // ShiftWithEmployees is a struct to hold shift data along with assigned employees
 type ShiftWithEmployees struct {
-	Shift     Shift      `json:"shift"`
-	Employees []Employee `json:"employees"`
+	Shift      Shift                `json:"shift"`
+	Employees  []Employee           `json:"employees"`
+	Attendance map[uint]interface{} `json:"attendance"`
 }
 
-// GetShift retrieves a shift by ID along with employees assigned to that shift
+// GetShift retrieves a shift by ID along with employees assigned to that shift and their attendance for today
 func (s *employeeService) GetShift(id uint) (*ShiftWithEmployees, error) {
 	var shift Shift
 	if err := s.db.Preload("Employees.Employee").First(&shift, id).Error; err != nil {
@@ -253,16 +266,47 @@ func (s *employeeService) GetShift(id uint) (*ShiftWithEmployees, error) {
 		return nil, err
 	}
 
+	// Prepare the response structure
 	var employees []Employee
+	attendanceData := make(map[uint]interface{}) // Map to hold attendance data
+
+	now := time.Now() // Get the current time in UTC
+	date := now.Truncate(24 * time.Hour)
+
+	// Fetch attendance data for all employees in one query using a join
+	var attendanceRecords []Attendance
+
+	err := s.db.Table("attendances").
+		Select("attendances.ID, attendances.employee_id, attendances.shift_id, attendances.date, attendances.clock_in_time, attendances.clock_out_time, attendances.status").
+		Joins("JOIN employee_shifts ON employee_shifts.employee_id = attendances.employee_id").
+		Where("employee_shifts.shift_id = ? AND attendances.date = ?", id, date).
+		Scan(&attendanceRecords).Error
+
+	if err != nil {
+		log.Printf("Error fetching attendance records: %v", err)
+		return nil, err
+	}
+
+	// Populate the employees and attendance data
 	for _, empShift := range shift.Employees {
-		employees = append(employees, empShift.Employee)
+		employee := empShift.Employee
+		employees = append(employees, employee)
+
+		// Check if attendance data exists for the employee
+		for _, record := range attendanceRecords {
+			if record.EmployeeID == employee.ID {
+				attendanceData[employee.ID] = record
+				break
+			}
+		}
 	}
 
 	shift.Employees = []EmployeeShift{}
 
 	return &ShiftWithEmployees{
-		Shift:     shift,
-		Employees: employees,
+		Shift:      shift,
+		Employees:  employees,
+		Attendance: attendanceData, // Include attendance data in the response
 	}, nil
 }
 

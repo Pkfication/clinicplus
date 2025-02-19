@@ -3,6 +3,7 @@ package main
 import (
 	"clinicplus/internal/shared/config"
 	"clinicplus/internal/shared/middleware"
+	"clinicplus/pkg/cron"
 	"clinicplus/pkg/server"
 	"fmt"
 	"log"
@@ -11,6 +12,8 @@ import (
 )
 
 func main() {
+
+	cron.StartCronJobs()
 	// Get port from environment
 	port := config.GetServerPort()
 	serverAddr := fmt.Sprintf(":%s", port)

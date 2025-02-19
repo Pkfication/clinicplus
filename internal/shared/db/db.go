@@ -21,6 +21,9 @@ func InitDatabase() {
 	// Open database connection
 	var err error
 	DB, err = gorm.Open("postgres", dbURL)
+	// Open database connection
+
+	DB.LogMode(true)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

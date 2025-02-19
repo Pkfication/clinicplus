@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"clinicplus/internal/shared/utils"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -36,12 +37,12 @@ type Shift struct {
 
 type Attendance struct {
 	gorm.Model
-	EmployeeID   uint      `gorm:"not null" json:"employee_id"` // Foreign key
-	ShiftID      uint      `gorm:"not null" json:"shift_id"`    // Foreign key
-	Date         time.Time `gorm:"type:date;not null" json:"date"`
-	ClockInTime  time.Time `json:"clock_in_time"`
-	ClockOutTime time.Time `json:"clock_out_time"`
-	Status       string    `gorm:"not null" json:"status"` // e.g., Present/Absent
+	EmployeeID   uint           `gorm:"not null" json:"employee_id"` // Foreign key
+	ShiftID      uint           `gorm:"not null" json:"shift_id"`    // Foreign key
+	Date         time.Time      `gorm:"type:date;not null" json:"date"`
+	ClockInTime  time.Time      `json:"clock_in_time"`
+	ClockOutTime utils.NullTime `json:"clock_out_time"`
+	Status       string         `gorm:"not null" json:"status"` // e.g., Present/Absent
 
 	Employee Employee `gorm:"foreignkey:EmployeeID"` // Relationship with Employee
 	Shift    Shift    `gorm:"foreignkey:ShiftID"`    // Relationship with Shift
@@ -49,10 +50,10 @@ type Attendance struct {
 
 type EmployeeShift struct {
 	gorm.Model
-	EmployeeID uint      `gorm:"not null;index:uniq_idx,unique,composite" json:"employee_id"` // Foreign key
-	ShiftID    uint      `gorm:"not null;index:uniq_idx,unique,composite" json:"shift_id"`    // Foreign key
-	StartDate  time.Time `gorm:"type:date;not null;index:uniq_idx,unique,composite" json:"start_date"`
-	EndDate    time.Time `gorm:"type:date;not null;index:uniq_idx,unique,composite" json:"end_date"`
+	EmployeeID uint      `gorm:"not null;index:uniq_idx,unique" json:"employee_id"` // Foreign key
+	ShiftID    uint      `gorm:"not null;index:uniq_idx,unique" json:"shift_id"`    // Foreign key
+	StartDate  time.Time `gorm:"type:date;not null;index:uniq_idx,unique" json:"start_date"`
+	EndDate    time.Time `gorm:"type:date;not null;index:uniq_idx,unique" json:"end_date"`
 
 	Employee Employee `gorm:"foreignkey:EmployeeID"`
 	Shift    Shift    `gorm:"foreignkey:ShiftID"` // Relationship with Shift
