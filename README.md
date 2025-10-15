@@ -21,15 +21,51 @@ ClinicPlus is a Go-based backend API service for managing clinic operations and 
 ## Project Structure
 
 ```
-.
-├── cmd/            # Application entry points
-├── internal/       # Private application code
-├── migrations/     # Database migrations
-├── pkg/           # Public library code
-├── go.mod         # Go module definition
-├── go.sum         # Go module checksums
-├── Makefile       # Build automation
-└── render.yaml    # Deployment configuration
+clinicplus/
+├── cmd/                                    # Application entry points
+│   └── server/
+│       └── main.go                        # Main application entry point
+├── internal/                              # Private application code
+│   ├── employee/                          # Employee management module
+│   │   ├── handler.go                     # HTTP handlers for employee endpoints
+│   │   ├── models.go                      # Employee data models
+│   │   └── service.go                     # Business logic for employees
+│   ├── iam/                               # Identity and Access Management
+│   │   ├── handler.go                     # Authentication handlers
+│   │   ├── models.go                      # User and auth models
+│   │   └── service.go                     # Authentication business logic
+│   └── shared/                            # Shared application components
+│       ├── config/
+│       │   └── config.go                  # Configuration management
+│       ├── db/
+│       │   └── db.go                      # Database connection and setup
+│       ├── middleware/
+│       │   └── middleware.go              # HTTP middleware (CORS, etc.)
+│       ├── observability/                 # Observability and monitoring
+│       │   ├── metrics.go                 # Prometheus metrics setup
+│       │   ├── pprof.go                   # Profiling endpoints
+│       │   └── tracing.go                 # OpenTelemetry tracing
+│       ├── routes/
+│       │   ├── health.go                  # Health check endpoint
+│       │   └── routes.go                  # Route registration
+│       └── utils/
+│           └── utils.go                   # Utility functions
+├── migrations/                            # Database migrations
+│   └── 20250215002350_create_employee_table.sql
+├── pkg/                                   # Public library code
+│   ├── cron/
+│   │   └── cron.go                        # Scheduled job management
+│   └── server/
+│       └── server.go                      # HTTP server setup
+├── docker-compose.observability.yml       # Observability stack (Jaeger, Prometheus, Grafana)
+├── go.mod                                 # Go module definition
+├── go.sum                                 # Go module checksums
+├── loki-config.yml                        # Loki log aggregation config
+├── Makefile                               # Build automation and commands
+├── prometheus.yml                         # Prometheus metrics collection config
+├── promtail-config.yml                    # Promtail log collection config
+├── README.md                              # Project documentation
+└── render.yaml                            # Deployment configuration
 ```
 
 ## Getting Started
