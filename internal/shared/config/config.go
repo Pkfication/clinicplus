@@ -46,3 +46,18 @@ func GetDatabaseURL() string {
 func GetServerPort() string {
 	return GetEnvString("PORT", "8080")
 }
+
+// GetOTLPEndpoint retrieves the OTLP endpoint for tracing
+func GetOTLPEndpoint() string {
+	return GetEnvString("OTLP_ENDPOINT", "http://localhost:4318/v1/traces")
+}
+
+// GetServiceName retrieves the service name for observability
+func GetServiceName() string {
+	return GetEnvString("SERVICE_NAME", "clinicplus-api")
+}
+
+// GetServiceVersion retrieves the service version for observability
+func GetServiceVersion() string {
+	return GetEnvString("SERVICE_VERSION", "1.0.0")
+}

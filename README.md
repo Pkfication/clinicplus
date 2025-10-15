@@ -9,6 +9,8 @@ ClinicPlus is a Go-based backend API service for managing clinic operations and 
 - Database migrations using Goose
 - Scheduled tasks using cron
 - Environment-based configuration
+- **Observability stack**: OpenTelemetry tracing, Prometheus metrics, pprof profiling
+- **Monitoring**: Jaeger for distributed tracing, Grafana for visualization
 
 ## Prerequisites
 
@@ -49,12 +51,19 @@ ClinicPlus is a Go-based backend API service for managing clinic operations and 
    Create a `.env` file in the root directory with the following variables:
 
    ```
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USER=your_username
-   DB_PASSWORD=your_password
-   DB_NAME=clinicplus
-   JWT_SECRET=your_jwt_secret
+   # Database Configuration
+   DATABASE_URL=postgres://username:password@localhost:5432/clinicplus?sslmode=disable
+
+   # JWT Configuration
+   JWT_SECRET=your-super-secret-jwt-key-here
+
+   # Server Configuration
+   PORT=8080
+
+   # Observability Configuration
+   SERVICE_NAME=clinicplus-api
+   SERVICE_VERSION=1.0.0
+   OTLP_ENDPOINT=http://localhost:4318/v1/traces
    ```
 
 4. Run database migrations:
@@ -75,6 +84,10 @@ ClinicPlus is a Go-based backend API service for managing clinic operations and 
 - `make migrate` - Run database migrations
 - `make test` - Run tests
 - `make clean` - Clean up build artifacts
+- `make deps` - Download and tidy dependencies
+- `make observability-up` - Start observability stack (Jaeger, Prometheus, Grafana)
+- `make observability-down` - Stop observability stack
+- `make observability-logs` - View observability stack logs
 
 ## Dependencies
 
@@ -83,6 +96,55 @@ ClinicPlus is a Go-based backend API service for managing clinic operations and 
 - [dgrijalva/jwt-go](https://github.com/dgrijalva/jwt-go) - JWT implementation
 - [robfig/cron](https://github.com/robfig/cron) - Cron job scheduling
 - [joho/godotenv](https://github.com/joho/godotenv) - Environment variable management
+
+## Observability
+
+The application includes comprehensive observability features:
+
+### Tracing
+
+- **OpenTelemetry** integration for distributed tracing
+- Traces are sent to Jaeger (default: http://localhost:16686)
+- All HTTP requests and database operations are automatically traced
+
+### Metrics
+
+- **Prometheus** metrics exposed at `/metrics`
+- HTTP request metrics (count, duration, status codes)
+- Database operation metrics (queries, duration, errors)
+- Cron job execution metrics
+- Runtime metrics (Go GC, goroutines, memory)
+
+### Profiling
+
+- **pprof** endpoints available at `/debug/pprof/`
+- CPU, memory, goroutine, and mutex profiling
+- Access via: `go tool pprof http://localhost:8080/debug/pprof/profile`
+
+### Monitoring Stack
+
+Start the complete observability stack:
+
+```bash
+make observability-up
+```
+
+This starts:
+
+- **Jaeger** (http://localhost:16686) - Distributed tracing
+- **Prometheus** (http://localhost:9090) - Metrics collection
+- **Grafana** (http://localhost:3000) - Visualization (admin/admin)
+- **Loki** (http://localhost:3100) - Log aggregation
+
+### Environment Variables
+
+Configure observability endpoints:
+
+```bash
+SERVICE_NAME=clinicplus-api
+SERVICE_VERSION=1.0.0
+OTLP_ENDPOINT=http://localhost:4318/v1/traces
+```
 
 ## API Documentation
 
